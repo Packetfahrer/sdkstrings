@@ -1,12 +1,37 @@
 #!/bin/bash
 
-function showUsageAndExit () {
+function showUsageAndExit () 
+{
 	echo "Usage: $0 [-s <folder>] [-v <version>] string
 Options:
   -s FOLDER     Use FOLDER as root SDK directory; defaults to /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs
   -v VERSION    Use VERSION as iOS SDK version; defaults to 6.1"
 	exit 1
 }
+
+function printMatchingStrings () #args: string, path, name
+{ 
+	string=$1
+	path=$2
+	name=$3
+	result=`strings $path | grep -i "$string"`
+	if [[ ! -z $result ]]; then
+		echo "$name:"
+	
+		# hack to separate string by newlines
+		oldIFS="$IFS"
+		IFS='
+		'
+		IFS=${IFS:0:1}
+		lines=( $result )
+		IFS="$oldIFS"
+					
+		for line in "${lines[@]}"; do
+			echo "	$line"
+		done
+	fi
+}
+
 
 sdkRoot="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs"
 sdkVersion="6.1"
@@ -46,23 +71,13 @@ for type in $sdkPath/System/Library/*; do
 			name=$(basename $f)
 			path=$f/${name%.framework}
 			if [[ -f $path ]]; then
-				result=`strings $f/${name%.framework} | grep -i "$1"`
-				if [[ ! -z $result ]]; then
-					echo "$name:"
-					
-					# hack to separate string by newlines
-					oldIFS="$IFS"
-					IFS='
-					'
-					IFS=${IFS:0:1}
-					lines=( $result )
-					IFS="$oldIFS"
-					
-					for line in "${lines[@]}"; do
-				        echo "	$line"
-					done
-				fi
+				printMatchingStrings $1 $f/${name%.framework} $name
 			fi
 		done
+	elif [[ "$type" == *"CoreServices" ]]; then
+		path=$type/SpringBoard.app/SpringBoard
+		if [[ -f $path ]]; then
+			printMatchingStrings $1 $path "SpringBoard"
+		fi
 	fi
 done
