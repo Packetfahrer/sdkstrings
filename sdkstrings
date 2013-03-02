@@ -1,0 +1,68 @@
+#!/bin/bash
+
+function showUsageAndExit () {
+	echo "Usage: $0 [-s <folder>] [-v <version>] string
+Options:
+  -s FOLDER     Use FOLDER as root SDK directory; defaults to /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs
+  -v VERSION    Use VERSION as iOS SDK version; defaults to 6.1"
+	exit 1
+}
+
+sdkRoot="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs"
+sdkVersion="6.1"
+
+while getopts ":v:s:" opt; do
+	case $opt in
+		v)
+		sdkVersion=$OPTARG
+		;;
+		s)
+		sdkRoot=$OPTARG
+		;;
+		\?)
+		echo "Invalid option: -$OPTARG" >&2
+		exit 1
+		;;
+		:)
+		echo "Option -$OPTARG requires an argument." >&2
+		exit 1
+		;;
+	esac
+done
+shift $((OPTIND-1))
+
+sdkPath="${sdkRoot}/iPhoneOS${sdkVersion}.sdk"
+
+[[ ! -z $1 ]] || showUsageAndExit
+
+if [[ ! -d $sdkPath ]]; then
+	echo "Error: could not find SDK at $sdkPath"
+	exit 1
+fi
+
+for type in $sdkPath/System/Library/*; do
+	if [[ "$type" == *"PrivateFrameworks" || "$type" == *"Frameworks" ]]; then
+		for f in $type/* ; do
+			name=$(basename $f)
+			path=$f/${name%.framework}
+			if [[ -f $path ]]; then
+				result=`strings $f/${name%.framework} | grep -i "$1"`
+				if [[ ! -z $result ]]; then
+					echo "$name:"
+					
+					# hack to separate string by newlines
+					oldIFS="$IFS"
+					IFS='
+					'
+					IFS=${IFS:0:1}
+					lines=( $result )
+					IFS="$oldIFS"
+					
+					for line in "${lines[@]}"; do
+				        echo "	$line"
+					done
+				fi
+			fi
+		done
+	fi
+done
